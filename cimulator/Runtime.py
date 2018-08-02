@@ -164,6 +164,7 @@ def get_key(var, scope):
             raise Exceptions.any_user_error("Invalid variable", name, "used")
         return ret
 
+get_key = Globals.analyze(get_key)
 
 def get_key_first(var, scope):
     var = Globals.get_details(var)
@@ -346,6 +347,7 @@ def traverse(code, scope):
         print1("Unrecognized something", line)
         exit(0)
 
+traverse = Globals.analyze(traverse)
 
 def execute(code, scope):
     from . import Groups

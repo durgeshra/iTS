@@ -170,6 +170,30 @@ class Value(object):
     def __repr__(self):
         return "Value: "+str(self.v)
 
+def analyze(function):
+
+    def wrapper(*args, **kwargs):
+
+        with open("test.txt", "a") as myfile:
+            myfile.write("------------------------:FUNCTION:-------------------------\n")
+            myfile.write(str(function))
+            myfile.write("\n\n")
+            myfile.write("-------------------------:INPUT:--------------------------\n")
+            for arg in args:
+                myfile.write(str(arg))
+                myfile.write("\n")
+
+        result = function(*args, **kwargs)
+        print(result)
+
+        with open("test.txt", "a") as myfile:
+            myfile.write("---------------------------:OUTPUT:----------------------------\n")
+            myfile.write(str(result))
+            myfile.write("\n\n\n")
+
+        return result
+
+    return wrapper
 
 def get_details(var):
     name = ''

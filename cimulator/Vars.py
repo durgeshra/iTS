@@ -76,6 +76,7 @@ def get_val(key, scope, mul = 1):
         else:
             raise Exceptions.any_user_error("Invalid Memory location", key)
 
+get_val = Globals.analyze(get_val)
 
 def set_val(key, val, scope = '-none-'):
 
@@ -101,3 +102,5 @@ def set_val(key, val, scope = '-none-'):
             Globals.memory[key][0].v = val
         else:
             raise Exceptions.any_user_error("Invalid Memory location set_val", key)
+
+set_val = Globals.analyze(set_val)

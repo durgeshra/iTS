@@ -3,6 +3,7 @@ from abc import abstractmethod
 
 from .Exceptions import any_user_error
 from .Globals import priority_type
+from . import Globals
 
 def typecast(obj, type_T, force=False):
     if obj.typeclass == 'point' and type_T.typeclass == 'num':
@@ -275,6 +276,30 @@ class LongLong_T(Num_T):
     STR = "long long"
     MAX =  2**63 - 1
     MIN = -2**63
+
+class Operator:
+
+    def __init__(self,val):
+        if val in Globals.ops + ('&0', '|1'):
+            self.val = val
+        else:
+            raise ValueError("%s is not an operator" %val)
+
+    def __repr__(self):
+        return str(self.val)
+
+
+class Data_types:
+
+    def __init__(self,val):
+        if val in Globals.data_types:
+            self.val = val
+        else:
+            raise ValueError("%s is not a data type" %val)
+
+    def __repr__(self):
+        return str(self.val)
+
 
 type_map = {
         "number"        : Num_T,
