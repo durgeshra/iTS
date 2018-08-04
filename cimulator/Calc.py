@@ -6,6 +6,7 @@ from .Globals import is_num, print1, print2, print3
 from . import Globals
 from . import Exceptions
 from . import FakeMath
+from . import Types
 
 # Differentate between postfix and prefix increment operators.
 def pre_post_handle(tokens):
@@ -18,6 +19,7 @@ def pre_post_handle(tokens):
                 tokens[i] = '+++'
     return tokens
 
+pre_post_handle = Globals.analyze(pre_post_handle)
 
 # Separate out the tokens from an expression. i.e something like
 # '5 + 4' would become ['5', '+', '4']
@@ -104,6 +106,8 @@ def sep(expr):
     print1("Returning", sep_tokens)
     return sep_tokens
 
+sep = Globals.analyze(sep)
+
 
 # Convert operators like '+' which have overloaded binary and unary
 # functions into differentiated unary counterparts, '`+`' for example.
@@ -122,6 +126,8 @@ def unary_handle(separated_tokens):
 
     return separated_tokens
 
+unary_handle = Globals.analyze(unary_handle)
+
 
 # Add token to stack, taking extra care of && and || shortcircuiting
 # operators. (Using &0 , counter substitution). Also appends type
@@ -136,9 +142,9 @@ def add(arr, token, ctr, scope):
             arr.append((token, ctr))
         elif token in Globals.ops + ('&0', '|1'):
             arr.append((token,))
+            a = Types.Operator(token)
         else:
             arr.append((token, get_type(token, scope)))
-
 
 # Convert separated token list to postfix token list.
 # Example: ['4', '/', 'y'] to  [('4', 'number'), ('y', 'int'), ('/',)]
@@ -159,6 +165,7 @@ def to_postfix(tokens, scope):
                     stack.pop()
                     tmptypes.reverse()
                     add(stack, ('#type#', " ".join(k[1] for k in tmptypes)), ctr, scope)
+                    print("OOOLALALALALALALALAAL")
                 else:
                     while stack[-1][0] != '(':
                         add(postfix, stack.pop(), ctr, scope)
@@ -203,7 +210,7 @@ def to_postfix(tokens, scope):
     print("Returning", postfix)
     return postfix
 
-
+to_postfix = Globals.analyze(to_postfix)
 
 # Return the type with highest priority in coersion.
 # Eg. Lf>lf>f>lld>ld>d etc.
@@ -529,3 +536,5 @@ def calculate(expr, scope, vartable=Globals.var_table):
     r = get_val(ret[0], scope)
     Globals.calc_type = ret[1]
     return r
+
+calculate = Globals.analyze(calculate)
