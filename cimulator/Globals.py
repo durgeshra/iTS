@@ -75,6 +75,10 @@ data_types = [
     'long long int', 'long int', 'long double', 'long long',
     'char', 'int', 'long', 'float', 'double', 'pointer'
 ]
+whole_no_types = [
+    'long long int', 'long int', 'long long',
+    'char', 'int', 'long', 'pointer'
+]
 type_range = {}
 memory = {}
 functions = {}
@@ -162,7 +166,10 @@ def find_by_mem(mem):
 # Class to store all types of values of variables
 class Value(object):
     def __init__(self, v=None, type=('void', 0), tags=None):
-        self.v = v
+        if(type[0] in whole_no_types and type[1]==0):
+            self.v = v
+        else:
+            self.v = v
         self.type = type
         self.tags = tags
     def __str__(self):
@@ -184,7 +191,6 @@ def analyze(function):
                 myfile.write("\n")
 
         result = function(*args, **kwargs)
-        print(result)
 
         with open("test.txt", "a") as myfile:
             myfile.write("---------------------------:OUTPUT:----------------------------\n")

@@ -74,7 +74,6 @@ def decl(var, val, cast, scope, tags):
 
     newKey = (var, scope, Globals.curr_mem)
     Globals.var_table[newKey] = [Value(val, (cast, level), tags), cast, level, Globals.curr_mem]
-
     if level:
         size = Globals._size_of('pointer')
     else:
@@ -144,6 +143,10 @@ def get_matching_brace(val, i):
     return i
 
 def get_key(var, scope):
+    try:
+        var = var.myname()
+    except:
+        pass
     var = Globals.get_details(var)
     name = var[0]
     indices = var[1]

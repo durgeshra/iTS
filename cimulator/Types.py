@@ -4,6 +4,7 @@ from abc import abstractmethod
 from .Exceptions import any_user_error
 from .Globals import priority_type
 from . import Globals
+import re
 
 def typecast(obj, type_T, force=False):
     if obj.typeclass == 'point' and type_T.typeclass == 'num':
@@ -124,13 +125,20 @@ class Numeric:
     def __repr__(self):
         return str(self.val)
 
+    def myname(self):
+        return self.varname
+
+    def setval(self,value):
+        self.val = value
+
 class Point_T(Numeric):
     typeclass = "point"
     val = 0.0
 
-    def __init__(self, val):
+    def __init__(self, val=None, varname=None):
         val = float(val)
         self.val = val
+        self.varname = None
 
     @coerce
     def __div__(self, other):
@@ -200,14 +208,18 @@ class Num_T(Numeric):
 
     val = 0
 
-    def __init__(self, val):
-        val = int(val)
-        if val > self.MAX or val < self.MIN:
-            raise any_user_error(
-                    "Value", val, "out of bounds of the type",
-                    self.STR, "which can store values from",
-                    self.MIN, "to", self.MAX,".")
-        self.val = val
+    def __init__(self, val=None, varname=None):
+        #val = int(val)
+        # if val > self.MAX or val < self.MIN:
+        #     raise any_user_error(
+        #             "Value", val, "out of bounds of the type",
+        #             self.STR, "which can store values from",
+        #             self.MIN, "to", self.MAX,".")
+        if val==None:
+            self.val = val
+        else:
+            self.val = int(val)
+        self.varname = varname
 
     @coerce
     def __div__(self, other):
@@ -277,6 +289,48 @@ class LongLong_T(Num_T):
     MAX =  2**63 - 1
     MIN = -2**63
 
+class Pointer_T(Num_T):
+    STR = "pointer"
+
+class AndOr():
+
+    def __init__(self,val,count):
+        self.val = val
+        self.count = count
+
+    def __repr__(self):
+        return self.val
+
+    def count(self):
+        return self.count
+
+class Stranger(Numeric):
+
+    def __init__(self,val):
+        self.val = val
+
+    def setval(self,value):
+        self.val = value
+
+    def __repr__(self):
+        return self.val
+
+class Function():
+
+    def __init__(self,details,ret_type=None):
+
+        #if type in Globals.data_types:
+        self.details = re.findall('^\s*([a-zA-Z_]+[a-zA-Z0-9_]*)\s*\((.*)\)\s*$', details)[0]
+        self.ret_type = ret_type
+        #else:
+        #    raise ValueError("%s is not a data type" % type)
+
+    def __repr__(self):
+        return str(self.details)
+
+    def return_type(self):
+        return str(self.ret_type)
+
 class Operator:
 
     def __init__(self,val):
@@ -284,18 +338,6 @@ class Operator:
             self.val = val
         else:
             raise ValueError("%s is not an operator" %val)
-
-    def __repr__(self):
-        return str(self.val)
-
-
-class Data_types:
-
-    def __init__(self,val):
-        if val in Globals.data_types:
-            self.val = val
-        else:
-            raise ValueError("%s is not a data type" %val)
 
     def __repr__(self):
         return str(self.val)

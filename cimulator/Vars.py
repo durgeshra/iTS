@@ -5,17 +5,19 @@ from .Globals import print1, print2, print3, is_num
 from . import Globals
 from . import Runtime
 from . import Exceptions
+from . import Types
 
 def get_type(key, scope):
     if type(key) is not tuple:
         n = is_num(key)
         if 'Error' == n:
             k = re.findall('^\s*([a-zA-Z_]+[a-zA-Z0-9_]*)\s*\((.*)\)\s*$', key)
+
             if k:
                 if k[0][0] in Globals.predefined_funcs:
-                    return 'double'
+                    return 'predef'
                #return Globals.functions[k[0][0]][0]
-                return 'int'
+                return 'function'
             else:
                 key = Runtime.get_key_first(key, scope)
                 if type(key) is int:
@@ -35,15 +37,18 @@ def get_type(key, scope):
 
 def get_val(key, scope, mul = 1):
     from . import Calc
-
+    try:
+        key = key.myname()
+    except:
+        pass
     if type(key) is not tuple:
-        n = is_num(key)
-        if 'Error' == n:
-            k = re.findall('^\s*([a-zA-Z_]+[a-zA-Z0-9_]*)\s*\((.*)\)\s*$', key)
-            if k:
+        try:
+            return eval(str(key))
+        except:
+            if isinstance(key,Types.Function):
                 if mul != 1:
                     return 0
-                val = Calc.pass_to_func(k[0], scope)
+                val = Calc.pass_to_func(key, scope)
                 return val
             else:
                 if mul == 1:
@@ -52,8 +57,6 @@ def get_val(key, scope, mul = 1):
                     key = Runtime.get_key_first(key, scope)
                 if type(key) is int:
                     return key
-        else:
-            return eval(str(key))
     if len(key) != 1:
         t = Globals.in_var_table(key[0], scope)
         if t:
@@ -77,6 +80,17 @@ def get_val(key, scope, mul = 1):
             raise Exceptions.any_user_error("Invalid Memory location", key)
 
 get_val = Globals.analyze(get_val)
+
+def handle_address(val,isPointer):
+    if(isPointer):
+        if val in Globals.memory:
+            return Globals.memory[key][0].v
+        else:
+            raise Exceptions.any_user_error("Invalid Memory location", val)
+    else:
+        raise Exceptions.any_user_error(type, "cannot be dereferenced")
+
+handle_address = Globals.analyze(handle_address)
 
 def set_val(key, val, scope = '-none-'):
 

@@ -62,13 +62,13 @@ def eval_user_function(name, params, scope):
             "global "+name+" "+hash)
 
 
-def pass_to_func(detail, scope):
+def pass_to_func(key, scope):
     from . import Calc
 
     # detail is like ('pow', 'a, b')
-    name = detail[0]
-    params = tuple(a.strip() for a in toplevelsplit(detail[1], ','))
-    length = len(params) if detail[1].strip() != '' else 0
+    name = key.details[0]
+    params = tuple(a.strip() for a in toplevelsplit(key.details[1], ','))
+    length = len(params) if key.details[1].strip() != '' else 0
     if length == 0:
         params = []
 
