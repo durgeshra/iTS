@@ -25,7 +25,7 @@ def get_type(key, scope):
     if len(key) != 1:
         t = Globals.in_var_table(key[0], scope)
         if t:
-            return Globals.var_table[t][1] if Globals.var_table[t][2]==0 else 'pointer'
+            return Globals.var_table[t].cast if Globals.var_table[t].level==0 else 'pointer'
     else:
         if key in Globals.memory:
             return Globals.memory[key][0].type[0]
@@ -58,13 +58,13 @@ def get_val(key, scope, mul = 1):
         t = Globals.in_var_table(key[0], scope)
         if t:
             if mul != 1:
-                if Globals.var_table[t][0].type[1] != 0:
+                if Globals.var_table[t].cast != 0:
                     return 0
-            ret = Globals.var_table[t][0].v
+            ret = Globals.var_table[t].val
             if ret == '':
                 raise Exceptions.any_user_error("Variable " + key[0] + " used "
                         "without initialisation in current line.")
-            return Globals.var_table[t][0].v
+            return Globals.var_table[t].val
         else:
             raise Exceptions.any_user_error("Invalid variable used in current line.")
     else:
@@ -94,7 +94,7 @@ def set_val(key, val, scope = '-none-'):
 
         t = Globals.in_var_table(key[0], scope)
         if t:
-            Globals.var_table[t][0].v = val
+            Globals.var_table[t].val = val
     else:
         Globals.gui += "\nupdate_variable(\'"+str(key[0])+"\',\'"+str(val)+"\');"
 

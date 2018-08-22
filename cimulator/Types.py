@@ -128,9 +128,13 @@ class Point_T(Numeric):
     typeclass = "point"
     val = 0.0
 
-    def __init__(self, val):
-        val = float(val)
+    def __init__(self, val=None, cast=None, level=None, tags=None):
+        if val!=None:
+            val = float(val)
         self.val = val
+        self.cast = cast
+        self.level = level
+        self.tags = tags
 
     @coerce
     def __div__(self, other):
@@ -200,14 +204,21 @@ class Num_T(Numeric):
 
     val = 0
 
-    def __init__(self, val):
-        val = int(val)
-        if val > self.MAX or val < self.MIN:
+    def __init__(self, val=None, cast=None, level=None, tags=None):
+        if val!=None:
+            try:
+                val = ord(val)
+            except:
+                val = int(val)
+        if val!=None and (val > self.MAX or val < self.MIN):
             raise any_user_error(
                     "Value", val, "out of bounds of the type",
                     self.STR, "which can store values from",
                     self.MIN, "to", self.MAX,".")
         self.val = val
+        self.cast = cast
+        self.level = level
+        self.tags = tags
 
     @coerce
     def __div__(self, other):

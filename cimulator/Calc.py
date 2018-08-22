@@ -165,7 +165,6 @@ def to_postfix(tokens, scope):
                     stack.pop()
                     tmptypes.reverse()
                     add(stack, ('#type#', " ".join(k[1] for k in tmptypes)), ctr, scope)
-                    print("OOOLALALALALALALALAAL")
                 else:
                     while stack[-1][0] != '(':
                         add(postfix, stack.pop(), ctr, scope)
@@ -311,7 +310,7 @@ def calculate(expr, scope, vartable=Globals.var_table):
                 elif len(key) == 1:
                     mem = key[0]
                 else:
-                    mem = vartable[key][3]
+                    mem = key[2]
                 var_stack[l()] = (mem, 'number')
             elif token == '`+`':
                 var_stack[l()] = (var_stack[l()], max_type(t1))

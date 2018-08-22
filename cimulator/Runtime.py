@@ -5,6 +5,7 @@ import re
 from .Globals import print1, print2, print3
 from .Globals import Value
 from . import Globals
+from . import Types
 from . import Calc
 from . import IO
 from . import Exceptions
@@ -73,14 +74,31 @@ def decl(var, val, cast, scope, tags):
         raise Exceptions.any_user_error("Multiple declaration of variable " + var)
 
     newKey = (var, scope, Globals.curr_mem)
-    Globals.var_table[newKey] = [Value(val, (cast, level), tags), cast, level, Globals.curr_mem]
+    #Globals.var_table[newKey] = [Value(val, (cast, level), tags), cast, level, Globals.curr_mem]
+
+    if cast=="char":
+        Globals.var_table[newKey] = Types.Char_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast=="int":
+        Globals.var_table[newKey] = Types.Int_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "long" or cast == "long int":
+        Globals.var_table[newKey] = Types.Long_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "long long" or cast == "long long int":
+        Globals.var_table[newKey] = Types.LongLong_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "float":
+        Globals.var_table[newKey] = Types.Float_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "double":
+        Globals.var_table[newKey] = Types.Double_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "long double":
+        Globals.var_table[newKey] = Types.LongDouble_T(val=val, cast=cast, level=level, tags=tags)
 
     if level:
         size = Globals._size_of('pointer')
     else:
         size = Globals._size_of(cast)
 
-    Globals.memory[(Globals.curr_mem,)] = [Globals.var_table[newKey][0], size, level+1]
+    value = Value(val,(cast,level),tags)
+
+    Globals.memory[(Globals.curr_mem,)] = [value, size, level+1]
 
     Globals.gui += "\ndefine_variable('{0}', '{1}', '{2}', '{3}', '{4}')".format(
             cast, '-'.join(scope.split()), var, str(val), Globals.curr_mem )
@@ -216,7 +234,7 @@ def chk_decl(line, scope):
         a = [Globals.toplevelsplit(k.strip(), '=') for k in a]
         for variables in a:
             if len(variables) == 1:
-                decl(variables[0].strip(), '', cast, scope, tags)
+                decl(variables[0].strip(), None, cast, scope, tags)
             else:
                 decl(variables[0].strip(), Calc.calculate(variables[1], scope,\
                         Globals.var_table), cast, scope, tags)

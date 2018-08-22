@@ -184,7 +184,6 @@ def analyze(function):
                 myfile.write("\n")
 
         result = function(*args, **kwargs)
-        print(result)
 
         with open("test.txt", "a") as myfile:
             myfile.write("---------------------------:OUTPUT:----------------------------\n")

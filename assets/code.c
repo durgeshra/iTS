@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main() {
-    int x,y; float z; char ch;
+    long int x,y; float z; char ch;
     x=1, y=4, z=8, ch='5';
 
     printf("%d ", 4/y+x );
