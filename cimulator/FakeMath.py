@@ -3,6 +3,7 @@ from six.moves import range
 from math import *
 
 from .Globals import print1, print2, print3
+from . import Globals
 
 #Power Functions
 funcs = {}
@@ -124,6 +125,6 @@ def invoke(name, params, scope):
     for i in range(0,len(params)):
         p.append(Calc.calculate(params[i], scope))
     if name in ['pow', 'hypot', 'fmod', 'modf', 'ldexp', 'frexp']:
-        return funcs[name](p[0], p[1])
+        return Globals.value_type(funcs[name](p[0], p[1]))
     else:
-        return funcs[name](p[0])
+        return Globals.value_type(funcs[name](p[0]))

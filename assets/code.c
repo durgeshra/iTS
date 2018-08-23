@@ -3,7 +3,7 @@
 
 int main() {
     long int x,y; float z; char ch;
-    x=1, y=4, z=8, ch='5';
+    x=1, y=(int)4.5, z=8, ch='5';
 
     printf("%d ", 4/y+x );
     printf("%2.2f ", x/y*0.5 );

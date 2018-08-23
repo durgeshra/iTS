@@ -4,6 +4,7 @@ import re
 from . import IO
 from . import Globals
 from . import Exceptions
+from . import Types
 
 def printf(params, scope):
     from . import Calc
@@ -59,11 +60,11 @@ def invoke(name, params, scope):
         params = [ Globals.get_str(params[0]) ]
         t = re.findall(r'\*', params[0])
         if t:
-            return Globals.sizeof['pointer']
+            return Types.Int_T(Globals.size_of['pointer'])
         else:
-            return Globals.sizeof[params[0].strip()]
+            return Types.Int_T(Globals.size_of[params[0].strip()])
     if name == 'malloc':
         raise Exceptions.any_user_error("Malloc hasn't been implemented yet.")
 
     if name in fnx:
-        return fnx[name](params, scope)
+        return Types.Int_T(int(fnx[name](params, scope)))

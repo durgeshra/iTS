@@ -288,28 +288,29 @@ class LongLong_T(Num_T):
     MAX =  2**63 - 1
     MIN = -2**63
 
-class Operator:
+class Operator():
 
-    def __init__(self,val):
-        if val in Globals.ops + ('&0', '|1'):
-            self.val = val
-        else:
-            raise ValueError("%s is not an operator" %val)
-
-    def __repr__(self):
-        return str(self.val)
-
-
-class Data_types:
-
-    def __init__(self,val):
-        if val in Globals.data_types:
-            self.val = val
-        else:
-            raise ValueError("%s is not a data type" %val)
-
-    def __repr__(self):
-        return str(self.val)
+    def __init__(self, op, ctr=0, cast=None):
+        self.op = op
+        self.ctr = ctr
+        self.cast = cast
+        
+def construct(val, cast, level=None, tags=None):
+    if cast=="char":
+        return Types.Char_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast=="int":
+        return Types.Int_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "long" or cast == "long int":
+        return Types.Long_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "long long" or cast == "long long int":
+        return Types.LongLong_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "float":
+        return Types.Float_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "double":
+        return Types.Double_T(val=val, cast=cast, level=level, tags=tags)
+    elif cast == "long double":
+        return Types.LongDouble_T(val=val, cast=cast, level=level, tags=tags)
+    
 
 
 type_map = {

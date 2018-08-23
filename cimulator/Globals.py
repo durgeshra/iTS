@@ -347,6 +347,17 @@ def is_num(s):
     except ValueError:
         return 'Error'
 
+def value_type(s):
+    from . import Types
+    if re.match(r'\'.\'',str(s)):
+        return Types.Char_T(val=ord(s))
+    elif re.match(r'[0-9]+\.[0-9]+',str(s)):
+        return Types.Float_T(float(s))
+    elif re.match(r'^-?\d+$',str(s)):
+        return Types.Int_T(int(s))
+    elif re.match(r'^-?\d+L$',str(s)):
+        return Types.Long_T(int(s))
+    else return "Error"
 
 def separate_def(input): # input is like "int a" or "int b[]" or "long long ** g[56]" or "int"
     # Target is to return ('int', 'a'), ('int[]', 'b'), ('long long**[56]', g), ('int', '')

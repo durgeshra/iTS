@@ -6,26 +6,29 @@ from . import Globals
 from . import Runtime
 from . import Exceptions
 
-def get_type(key, scope):
+def get_classes(key, scope):
+    from . import Calc
     if type(key) is not tuple:
-        n = is_num(key)
+        n = value_type(key)
         if 'Error' == n:
             k = re.findall('^\s*([a-zA-Z_]+[a-zA-Z0-9_]*)\s*\((.*)\)\s*$', key)
             if k:
-                if k[0][0] in Globals.predefined_funcs:
-                    return 'double'
+
+                ###############NOT SURE IF PREDEFINED FUNC MAKES ANY DIFFERENCE########
+                #if k[0][0] in Globals.predefined_funcs:
+                #    return 'predef'
                #return Globals.functions[k[0][0]][0]
-                return 'int'
+                return Calc.pass_to_func(k[0], scope)
             else:
-                key = Runtime.get_key_first(key, scope)
-                if type(key) is int:
-                    return 'number'
+                return Runtime.get_key_first(key, scope)
         else:
-            return 'number'
+            return n
+
+    #The below 'if' condition will never be used, not sure about the else condition, but couldn't find the use case
     if len(key) != 1:
         t = Globals.in_var_table(key[0], scope)
         if t:
-            return Globals.var_table[t].cast if Globals.var_table[t].level==0 else 'pointer'
+            return Globals.var_table[t]
     else:
         if key in Globals.memory:
             return Globals.memory[key][0].type[0]

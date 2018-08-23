@@ -132,19 +132,15 @@ unary_handle = Globals.analyze(unary_handle)
 # Add token to stack, taking extra care of && and || shortcircuiting
 # operators. (Using &0 , counter substitution). Also appends type
 # information wherever known.
-def add(arr, token, ctr, scope):
-    from .Vars import get_val, set_val, get_type
+def add(arr, token, ctr, scope, cast=None):
+    from .Vars import get_classes
 
-    if type(token) is tuple:
-        arr.append(token)
+    if token == '||' or token == '&&':
+        arr.append(Types.Operator(token,ctr,cast))
+    elif token in Globals.ops + ('&0', '|1'):
+        arr.append(Types.Operator(token,ctr,cast))
     else:
-        if token == '||' or token == '&&':
-            arr.append((token, ctr))
-        elif token in Globals.ops + ('&0', '|1'):
-            arr.append((token,))
-            a = Types.Operator(token)
-        else:
-            arr.append((token, get_type(token, scope)))
+        arr.append(get_classes(token, scope))
 
 # Convert separated token list to postfix token list.
 # Example: ['4', '/', 'y'] to  [('4', 'number'), ('y', 'int'), ('/',)]
@@ -156,7 +152,6 @@ def to_postfix(tokens, scope):
         if tk in Globals.ops:
             if tk == '(':
                 add(stack, tk, ctr, scope)
-
             elif tk == ')':
                 tmptypes = []
                 if stack[-1][0] == '#type#':
@@ -164,7 +159,7 @@ def to_postfix(tokens, scope):
                         tmptypes.append(stack.pop())
                     stack.pop()
                     tmptypes.reverse()
-                    add(stack, ('#type#', " ".join(k[1] for k in tmptypes)), ctr, scope)
+                    add(stack, '#type#', ctr, scope, " ".join(k[1] for k in tmptypes))
                 else:
                     while stack[-1][0] != '(':
                         add(postfix, stack.pop(), ctr, scope)
@@ -187,17 +182,15 @@ def to_postfix(tokens, scope):
                     else:
                         add(stack, tk, ctr, scope)
 
-            if tk == '&&':
-                add(postfix, ('&0', ctr), ctr, scope)
+            if tk == '&&' or tk == '||':
+                add(postfix, tk, ctr, scope)
                 ctr += 1
-            elif tk == '||':
-                add(postfix, ('|1', ctr), ctr, scope)
-                ctr += 1
+
         else:
             tag = 0
             for types in Globals.data_types:
                 if tk.startswith(types):
-                    add(stack, ('#type#', tk), ctr, scope)
+                    add(stack, '#type#', ctr, scope, tk)
                     tag = 1
                     break
             if tag == 0:
@@ -243,7 +236,7 @@ def caller_name():
 # everything. Can get input like '5+(a=4)+(a==4)?1:2'.
 
 def calculate(expr, scope, vartable=Globals.var_table):
-    from .Vars import get_val, set_val, get_type
+    from .Vars import get_val, set_val, get_classes
     from . import Runtime
 
     if re.match(r'^(?s)\s*$', expr):

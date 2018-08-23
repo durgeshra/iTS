@@ -76,20 +76,7 @@ def decl(var, val, cast, scope, tags):
     newKey = (var, scope, Globals.curr_mem)
     #Globals.var_table[newKey] = [Value(val, (cast, level), tags), cast, level, Globals.curr_mem]
 
-    if cast=="char":
-        Globals.var_table[newKey] = Types.Char_T(val=val, cast=cast, level=level, tags=tags)
-    elif cast=="int":
-        Globals.var_table[newKey] = Types.Int_T(val=val, cast=cast, level=level, tags=tags)
-    elif cast == "long" or cast == "long int":
-        Globals.var_table[newKey] = Types.Long_T(val=val, cast=cast, level=level, tags=tags)
-    elif cast == "long long" or cast == "long long int":
-        Globals.var_table[newKey] = Types.LongLong_T(val=val, cast=cast, level=level, tags=tags)
-    elif cast == "float":
-        Globals.var_table[newKey] = Types.Float_T(val=val, cast=cast, level=level, tags=tags)
-    elif cast == "double":
-        Globals.var_table[newKey] = Types.Double_T(val=val, cast=cast, level=level, tags=tags)
-    elif cast == "long double":
-        Globals.var_table[newKey] = Types.LongDouble_T(val=val, cast=cast, level=level, tags=tags)
+    Globals.var_table[newKey] = Types.construct(val=val, cast=cast, level=level, tags=tags)
 
     if level:
         size = Globals._size_of('pointer')
@@ -188,15 +175,20 @@ def get_key_first(var, scope):
     var = Globals.get_details(var)
     name = var[0]
     indices = var[1]
+    ##################################################
     if indices:
         indices = [0 for ind in indices]
         key = Globals.in_var_table(name, scope)
         return resolve(key, indices, scope)
+    #NEED TO DISCUSS ABOUT THIS#######################
     else:
         name = Globals.unescape(name)
         if re.match(r"'.'", name):
-            return ord(name[1:-1])
-        return Globals.in_var_table(name, scope)
+            return Types.Char_T(val=ord(name[1:-1]))
+        t = Globals.in_var_table(name, scope)
+        if t:
+            return Globals.var_table[t]
+
 
 
 def resolve(key, indices, scope):

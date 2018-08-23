@@ -7,6 +7,7 @@ from . import Exceptions
 from . import FakeMath
 from . import FakeStdio
 from . import Globals
+from . import Types
 
 func = {
     'default': ['sizeof', 'malloc'],
@@ -58,8 +59,8 @@ def eval_user_function(name, params, scope):
         for i, d in enumerate(target[1]):
             Runtime.decl(d[1], params[i], d[0], "global " + name + " " + hash, None)
 
-    return Runtime.execute(Globals.functions[name][2], \
-            "global "+name+" "+hash)
+    return Types.construct(val=Runtime.execute(Globals.functions[name][2], \
+            "global "+name+" "+hash, cast=target[0])
 
 
 def pass_to_func(detail, scope):
@@ -84,7 +85,7 @@ def pass_to_func(detail, scope):
                     break
         if pause:
             Globals.gui += "\npause_simulation();"
-        return 0
+        return Types.Int_T(0)
 
     for lib in func:
         arr = func[lib]
@@ -94,6 +95,7 @@ def pass_to_func(detail, scope):
             if lib == 'math':
                 return FakeMath.invoke(name, params, scope)
             if lib == 'string':
+                ##########NOT IMPLEMENTED##############
                 return FakeString.invoke(name, params, scope)
             if lib == 'stdio':
                 return FakeStdio.invoke(name, params, scope)
