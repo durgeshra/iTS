@@ -129,6 +129,7 @@ def setup():
     type_range['pointer']     = (0, 10**100)
     temp                      = type_range['char']
     type_range['char']        = (0, temp[1] - temp[0])
+    type_range['number']      = (float("-inf"), float("inf"))
 
 
 # Get key tuple from variable name and scope
@@ -200,6 +201,12 @@ def get_details(var):
     flag = 1
     first = 0
     bracks = 0
+
+    try:
+        var = var.val
+    except:
+        pass
+
     for i, ch in enumerate(var):
         if flag and ch!='[':
             continue;
@@ -350,14 +357,17 @@ def is_num(s):
 def value_type(s):
     from . import Types
     if re.match(r'\'.\'',str(s)):
-        return Types.Char_T(val=ord(s))
+        return Types.Char_T(val=ord(s[1]))
     elif re.match(r'[0-9]+\.[0-9]+',str(s)):
         return Types.Float_T(float(s))
     elif re.match(r'^-?\d+$',str(s)):
         return Types.Int_T(int(s))
     elif re.match(r'^-?\d+L$',str(s)):
         return Types.Long_T(int(s))
-    else return "Error"
+    elif re.match(r'^(?s)\".*\"$',str(s)):
+        return Types.String(s)
+    else:
+        return "Error"
 
 def separate_def(input): # input is like "int a" or "int b[]" or "long long ** g[56]" or "int"
     # Target is to return ('int', 'a'), ('int[]', 'b'), ('long long**[56]', g), ('int', '')

@@ -54,7 +54,9 @@ def str_to_mem(str1, scope):
 
 def decl(var, val, cast, scope, tags):
     pointers = re.findall('\*+', var)
+    isPointer = False
     if pointers:
+        isPointer = True
         level = len(pointers[0])
         var = re.sub('\*', '', var)
         var = re.sub('\s', '', var)
@@ -66,7 +68,6 @@ def decl(var, val, cast, scope, tags):
 
     data = Globals.get_details(var)
     var, indices = data[0], data[1]
-
     indices = [Calc.calculate(ind, scope) for ind in indices]
     level += len(indices)
     key = Globals.in_var_table(var, scope)
@@ -76,7 +77,10 @@ def decl(var, val, cast, scope, tags):
     newKey = (var, scope, Globals.curr_mem)
     #Globals.var_table[newKey] = [Value(val, (cast, level), tags), cast, level, Globals.curr_mem]
 
-    Globals.var_table[newKey] = Types.construct(val=val, cast=cast, level=level, tags=tags)
+    if isPointer:
+        Globals.var_table[newKey] = Types.construct(val=val, cast="pointer", var=var, level=level, tags=tags, parent_type=cast)
+    else:
+        Globals.var_table[newKey] = Types.construct(val=val, cast=cast, var=var, level=level, tags=tags)
 
     if level:
         size = Globals._size_of('pointer')
@@ -107,7 +111,6 @@ def decl(var, val, cast, scope, tags):
                 #raise Exceptions.any_user_error("Dimensions of array and initialized value don't match")
             # check if input matches with dimension of array, else raise user_error Exception
         makeMemory(Globals.curr_mem - Globals._size_of('pointer'), indices, level - 1, cast, val, scope)
-
 
 def dimension_list(val):
     global dim
@@ -180,14 +183,15 @@ def get_key_first(var, scope):
         indices = [0 for ind in indices]
         key = Globals.in_var_table(name, scope)
         return resolve(key, indices, scope)
+    ################################RETURN MEMORY KEY FROM VARTABLE#############################
     #NEED TO DISCUSS ABOUT THIS#######################
     else:
         name = Globals.unescape(name)
         if re.match(r"'.'", name):
-            return Types.Char_T(val=ord(name[1:-1]))
+            return Types.Char_T(val=ord(name[1:-1])), None
         t = Globals.in_var_table(name, scope)
         if t:
-            return Globals.var_table[t]
+            return Globals.var_table[t], t
 
 
 

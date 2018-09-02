@@ -67,4 +67,4 @@ def invoke(name, params, scope):
         raise Exceptions.any_user_error("Malloc hasn't been implemented yet.")
 
     if name in fnx:
-        return Types.Int_T(int(fnx[name](params, scope)))
+        return Types.Int_T(fnx[name](params, scope))

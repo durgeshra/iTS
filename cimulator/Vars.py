@@ -1,7 +1,7 @@
 from __future__ import print_function, absolute_import
 import re
 
-from .Globals import print1, print2, print3, is_num
+from .Globals import print1, print2, print3, is_num, value_type
 from . import Globals
 from . import Runtime
 from . import Exceptions
@@ -11,24 +11,26 @@ def get_classes(key, scope):
     if type(key) is not tuple:
         n = value_type(key)
         if 'Error' == n:
-            k = re.findall('^\s*([a-zA-Z_]+[a-zA-Z0-9_]*)\s*\((.*)\)\s*$', key)
+            k = re.findall('^\s*([a-zA-Z_]+[a-zA-Z0-9_]*)\s*\((.*)\)\s*$', str(key))
             if k:
 
                 ###############NOT SURE IF PREDEFINED FUNC MAKES ANY DIFFERENCE########
                 #if k[0][0] in Globals.predefined_funcs:
                 #    return 'predef'
                #return Globals.functions[k[0][0]][0]
-                return Calc.pass_to_func(k[0], scope)
+
+                #returns the calculated value from function
+                return Calc.pass_to_func(k[0], scope), None
             else:
+                #returns both value and memory location
                 return Runtime.get_key_first(key, scope)
         else:
-            return n
-
+            return n, None
     #The below 'if' condition will never be used, not sure about the else condition, but couldn't find the use case
     if len(key) != 1:
         t = Globals.in_var_table(key[0], scope)
         if t:
-            return Globals.var_table[t]
+            return Globals.var_table[t],t
     else:
         if key in Globals.memory:
             return Globals.memory[key][0].type[0]
@@ -97,7 +99,7 @@ def set_val(key, val, scope = '-none-'):
 
         t = Globals.in_var_table(key[0], scope)
         if t:
-            Globals.var_table[t].val = val
+            Globals.var_table[t].setval(val)
     else:
         Globals.gui += "\nupdate_variable(\'"+str(key[0])+"\',\'"+str(val)+"\');"
 

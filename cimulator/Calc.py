@@ -132,75 +132,85 @@ unary_handle = Globals.analyze(unary_handle)
 # Add token to stack, taking extra care of && and || shortcircuiting
 # operators. (Using &0 , counter substitution). Also appends type
 # information wherever known.
-def add(arr, token, ctr, scope, cast=None):
+def add(arr, memarr, token, ctr, scope, cast=None):
     from .Vars import get_classes
-
     if token == '||' or token == '&&':
         arr.append(Types.Operator(token,ctr,cast))
+        memarr.append(None)
     elif token in Globals.ops + ('&0', '|1'):
         arr.append(Types.Operator(token,ctr,cast))
+        memarr.append(None)
     else:
-        arr.append(get_classes(token, scope))
+        val, memval = get_classes(token, scope)
+        arr.append(val)
+        memarr.append(memval)
 
 # Convert separated token list to postfix token list.
 # Example: ['4', '/', 'y'] to  [('4', 'number'), ('y', 'int'), ('/',)]
 def to_postfix(tokens, scope):
     stack, postfix, ctr, i = [], [], 0, 0
+    memstack, mempf = [], []
 
     while i < len(tokens):
         tk = tokens[i]
         if tk in Globals.ops:
             if tk == '(':
-                add(stack, tk, ctr, scope)
+                add(stack, memstack, tk, ctr, scope)
             elif tk == ')':
                 tmptypes = []
-                if stack[-1][0] == '#type#':
-                    while stack[-1][0] != '(':
+                if stack[-1].val == '#type#':
+                    while stack[-1].val != '(':
                         tmptypes.append(stack.pop())
                     stack.pop()
                     tmptypes.reverse()
-                    add(stack, '#type#', ctr, scope, " ".join(k[1] for k in tmptypes))
+                    add(stack, memstack, '#type#', ctr, scope, " ".join(k.cast for k in tmptypes))
                 else:
-                    while stack[-1][0] != '(':
-                        add(postfix, stack.pop(), ctr, scope)
+                    while stack[-1].val != '(':
+                        #add(postfix, stack.pop(), ctr, scope)
+                        postfix.append(stack.pop())
+                        mempf.append(memstack.pop())
                     stack.pop()
-            elif len(stack) == 0 or stack[-1][0] == '(':
-                add(stack, tk, ctr, scope)
-
+            elif len(stack) == 0 or stack[-1].val == '(':
+                add(stack, memstack, tk, ctr, scope)
             else:
-                if Globals.priority[tk] < Globals.priority[stack[-1][0]]:
-                    add(postfix, stack.pop(), ctr, scope)
+                if Globals.priority[tk] < Globals.priority[stack[-1].val]:
+                    #add(postfix, stack.pop(), ctr, scope)
+                    postfix.append(stack.pop())
+                    mempf.append(memstack.pop())
                     continue
 
-                if Globals.priority[tk] > Globals.priority[stack[-1][0]]:
-                    add(stack, tk, ctr, scope)
+                if Globals.priority[tk] > Globals.priority[stack[-1].val]:
+                    add(stack, memstack, tk, ctr, scope)
 
-                elif Globals.priority[tk] == Globals.priority[stack[-1][0]]:
+                elif Globals.priority[tk] == Globals.priority[stack[-1].val]:
                     if Globals.priority[tk] % 2 == 0:
-                        add(postfix, stack.pop(), ctr, scope)
-                        add(stack, tk, ctr, scope)
+                        #add(postfix, stack.pop(), ctr, scope)
+                        postfix.append(stack.pop())
+                        mempf.append(memstack.pop())
+                        add(stack, memstack, tk, ctr, scope)
                     else:
-                        add(stack, tk, ctr, scope)
+                        add(stack, memstack, tk, ctr, scope)
 
             if tk == '&&' or tk == '||':
-                add(postfix, tk, ctr, scope)
+                add(postfix, mempf, tk, ctr, scope)
                 ctr += 1
 
         else:
             tag = 0
             for types in Globals.data_types:
                 if tk.startswith(types):
-                    add(stack, '#type#', ctr, scope, tk)
+                    add(stack, memstack, '#type#', ctr, scope, tk)
                     tag = 1
                     break
             if tag == 0:
-                add(postfix, tk, ctr, scope)
+                add(postfix, mempf, tk, ctr, scope)
         i += 1
     while len(stack) > 0:
-        add(postfix, stack.pop(), ctr, scope)
-
+        #add(postfix, stack.pop(), ctr, scope)
+        postfix.append(stack.pop())
+        mempf.append(memstack.pop())
     print("Returning", postfix)
-    return postfix
+    return postfix, mempf
 
 to_postfix = Globals.analyze(to_postfix)
 
@@ -255,239 +265,265 @@ def calculate(expr, scope, vartable=Globals.var_table):
 
     separated_tokens = pre_post_handle(separated_tokens)
     # Replace pre increment ++ and --
-    postfix = to_postfix(separated_tokens, scope)
+
+    postfix, mempf = to_postfix(separated_tokens, scope)
     # Convert to postfix
 
-    stack, var_stack = [], []
+    #var_stack and mem_stack are always parallel to each pother, ith entry of var_stack has memory location at ith entry of mem_stack
+    mem_stack, var_stack = [], []
     l = lambda: len(var_stack) - 1
     idx = 0
-    for i, tk in enumerate(postfix):
-        token = tk[0]
-        if idx and postfix[i-1] != idx:
+    for i, token in enumerate(postfix):
+        if idx and postfix[i-1].val != idx:
             continue
         idx = 0
-        if token not in Globals.ops + ('&0', '|1'):
-            var_stack.append(tk)
+        if token.val not in Globals.ops + ('&0', '|1'):
+            var_stack.append(token)
+            mem_stack.append(mempf[i])
         else:
-            if token in Globals.bin_ops:
-                t1 = var_stack[l()][1]
-                var_stack[l()] = var_stack[l()][0]
-                t2 = var_stack[l()-1][1]
-                var_stack[l()-1] = var_stack[l()-1][0]
-            elif token in Globals.un_ops + ('&0', '|1'):
-                t1 = var_stack[l()][1]
-                var_stack[l()] = var_stack[l()][0]
-            elif token == '?':
-                t1 = var_stack[l()][1]
-                var_stack[l()] = var_stack[l()][0]
-                t2 = var_stack[l()-1][1]
-                var_stack[l()-1] = var_stack[l()-1][0]
-                t3 = var_stack[l()-2][1]
-                var_stack[l()-2] = var_stack[l()-2][0]
-            if token == '---':
-                key = Runtime.get_key(var_stack[l()], scope)
-                val = get_val(key, scope) - 1
-                set_val(key, val, scope)
-                var_stack[l()] = (val, max_type(t1))
-            elif token == '+++':
-                key = Runtime.get_key(var_stack[l()], scope)
-                val = get_val(key, scope) + 1
-                set_val(key, val, scope)
-                var_stack[l()] = (val, max_type(t1))
-            elif token == '`*`':
-                var_stack[l()] = ((get_val(var_stack[l()], scope), ), get_type(var_stack[l()], scope)) # Do not remove the comma. It forces formation of a tuple
-            elif token == '`&`':
-                key = Runtime.get_key(var_stack[l()], scope)
-                if type(key) is not tuple:
-                    raise Exceptions.any_user_error("Something Wrong in the interpreter. Bug report filed.")
-                elif len(key) == 1:
-                    mem = key[0]
+            if token.val == '---':
+                val = var_stack[l()].val - 1
+                set_val(mem_stack[l()], val, scope)
+                var_stack[l()].setval(val)
+            elif token.val == '+++':
+                val = var_stack[l()].val + 1
+                set_val(mem_stack[l()], val, scope)
+                var_stack[l()].setval(val)
+            elif token.val == '`*`':
+                key = (var_stack[l()].val,)
+                if key in Globals.memory:
+                    var_stack[l()] = Types.construct(val = Globals.memory[key][0].v, cast = Globals.memory[key][0].type[0])
+                    mem_stack[l()] = None
                 else:
-                    mem = key[2]
-                var_stack[l()] = (mem, 'number')
-            elif token == '`+`':
-                var_stack[l()] = (var_stack[l()], max_type(t1))
-            elif token == '`-`':
-                var_stack[l()] = (0 - get_val(var_stack[l()], scope), max_type(t1))
-            elif token == '<<=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                set_val(key, get_val(key, scope) << get_val(var_stack[l()], scope), scope)
-                var_stack[l()-1] = (get_val(key, scope), max_type(t2))
+                    raise Exceptions.any_user_error("Invalid Memory location", key)
+                # var_stack[l()] = ((get_val(var_stack[l()], scope), ), get_type(var_stack[l()], scope)) # Do not remove the comma. It forces formation of a tuple
+            elif token.val == '`&`':
+                val = mem_stack[l()][2]
+                var_stack[l()] = Types.Pointer_T(parent_type = var_stack[l()].STR, val = val)
+                mem_stack[l()] = None
+            elif token.val == '`+`':
+                var_stack[l()] = Types.Num_T(val = var_stack[l()].val)
+                mem_stack[l()] = None
+            elif token.val == '`-`':
+                var_stack[l()] = Types.Num_T(val = -var_stack[l()].val)
+                mem_stack[l()] = None
+            elif token.val == '<<=':
+                val = var_stack[l() - 1] << var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
                 var_stack.pop()
-            elif token == '>>=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                set_val(key, get_val(key, scope) >> get_val(var_stack[l()], scope), scope)
-                var_stack[l()-1] = (get_val(key, scope), max_type(t2))
+                mem_stack.pop()
+            elif token.val == '>>=':
+                val = var_stack[l() - 1] >> var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
                 var_stack.pop()
-            elif token == '|1':
-                if get_val(var_stack[l()], scope):
-                    var_stack[l()] = (1, 'number')
-                    idx = ('||', tk[1])
+                mem_stack.pop()
+            elif token.val == '|1':
+                if var_stack[l()].val:
+                    var_stack[l()] = Int_T(val = 1)
+                    idx = ('||', token.ctr)
+            elif token.val == '&0':
+                if not var_stack[l()].val:
+                    var_stack[l()] = Int_T(val = 0)
+                    idx = ('&&', token.ctr)
+            elif token.val == '*=':
+                val = var_stack[l() - 1] * var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '|=':
+                val = var_stack[l() - 1] | var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '>=':
+                isGEq = var_stack[l() - 1].val >= var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val=isGEq)
+                mem_stack[l() - 1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '>>':
+                val = var_stack[l() - 1] >> var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '==':
+                isEqual = var_stack[l() - 1].val == var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val=isEqual)
+                mem_stack[l() - 1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val== '<<':
+                val = var_stack[l() - 1] << var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '<=':
+                isLEq = var_stack[l() - 1].val <= var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val = isLEq)
+                mem_stack[l() - 1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '&=':
+                val = var_stack[l() - 1] & var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '!=':
+                isUnequal = var_stack[l() - 1].val != var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val = isUnequal)
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '&&':
+                aAndB = var_stack[l()-1].val and var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val = aAndB)
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '||':
+                aOrB = var_stack[l()-1].val or var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val = aOrB)
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '^=':
+                val = var_stack[l() - 1] ^ var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '++':
+                #post increment does not require value change in operation, but value in var_table is changed
+                set_val(mem_stack[l()], var_stack[l()].val+1, scope)
+            elif token.val == '--':
+                #post decrement does not require value change in operation, but value in var_table is changed
+                set_val(mem_stack[l()], var_stack[l()].val-1, scope)
+            elif token.val == '/=':
+                val = var_stack[l()-1] / var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '%=':
+                val = var_stack[l()-1] % var_stack[l()]
+                set_val(mem_stack[l()-1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '-=':
+                val = var_stack[l() - 1] - var_stack[l()]
+                set_val(mem_stack[l() - 1], val, scope)
+                var_stack[l() - 1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '+=':
+                val = var_stack[l()-1] + var_stack[l()]
+                set_val(mem_stack[l()-1], val, scope)
+                var_stack[l()-1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == ',':
+                var_stack[l() - 1] = var_stack[l()]
+                mem_stack[l()-1] = mem_stack[l()]
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '>':
+                isMore = var_stack[l() - 1].val > var_stack[l()].val
+                var_stack[l() - 1] = Types.Num_T(val=isMore)
+                mem_stack[l() - 1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '|':
+                var_stack[l() - 1] = var_stack[l() - 1] | var_stack[l()]
+                mem_stack[l() - 1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '^':
+                var_stack[l() - 1] = var_stack[l() - 1] ^ var_stack[l()]
+                mem_stack[l() - 1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '!':
+                isZero = not var_stack[l()].val
+                var_stack[l()] = Types.Num_T(val = isZero)
+                mem_stack[l()] = None
+            elif token.val == '%':
+                if var_stack[l()].val == 0:
+                    raise ValueError("Modulo by 0 not allowed!")
+                var_stack[l()-1] = var_stack[l()-1] % var_stack[l()]
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '&':
+                var_stack[l()-1] = var_stack[l()-1] & var_stack[l()]
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '+':
+                val = var_stack[l()-1] + var_stack[l()]
+                var_stack[l()-1] = val
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '*':
+                val = var_stack[l()-1] * var_stack[l()]
+                var_stack[l() - 1] = val
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '-':
+                val = var_stack[l()-1] - var_stack[l()]
+                var_stack[l() - 1] = val
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '/':
+                if (var_stack[l()].val == 0):
+                    raise ValueError("Division by 0 not allowed!")
+                val = var_stack[l()-1] / var_stack[l()]
+                var_stack[l() - 1] = val
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '=':
+                val = var_stack[l()].val
+                set_val(mem_stack[l()-1], val, scope)
+                var_stack[l()-1].setval(val)
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '<':
+                isLess = var_stack[l()-1].val < var_stack[l()].val
+                var_stack[l()-1] = Types.Int_Num_TT(val=isLess)
+                mem_stack[l()-1] = None
+                var_stack.pop()
+                mem_stack.pop()
+            elif token.val == '~':
+                var_stack[l()] = ~var_stack[l()]
+                mem_stack[l()] = None
+            elif token.val == ':':
+                assert postfix[i+1].val == '?'
+            elif token.val == '?':
+                assert postfix[i-1].val == ':'
+                if var_stack[l()-2].val:
+                    var_stack[l()-2] = var_stack[l()-1]
+                    mem_stack[l()-2] = mem_stack[l()-1]
                 else:
-                    var_stack[l()] = (get_val(var_stack[l()], scope), max_type(t1))
-            elif token == '&0':
-                if not get_val(var_stack[l()], scope):
-                    var_stack[l()] = (0, 'number')
-                    idx = ('&&', tk[1])
-                else:
-                    var_stack[l()] = (get_val(var_stack[l()], scope), max_type(t1))
-            elif token == '*=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(key, scope) * get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == '|=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(key, scope) | get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == '>=':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) >= get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '>>':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) >> get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '==':
-                var_stack[l() - 1] = ((1, 'number') if (get_val(var_stack[l() - 1], scope) == get_val(var_stack[l()], scope)) else (0, 'number'))
-                var_stack.pop()
-            elif token == '<<':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) << get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '<=':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) <= get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '&=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(key, scope) & get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == '!=':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) != get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '&&':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) and get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '||':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) or get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '^=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(key, scope) ^ get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == '++':
-                key = Runtime.get_key(var_stack[l()], scope)
-                val = get_val(key, scope) + 1
-                set_val(key, val, scope)
-                var_stack[l()] = (val - 1, max_type(t1))
-            elif token == '--':
-                key = Runtime.get_key(var_stack[l()], scope)
-                val = get_val(key, scope) - 1
-                set_val(key, val, scope)
-                var_stack[l()] = (val + 1, max_type(t1))
-            elif token == '/=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                if get_val(var_stack[l()], scope) is 0:
-                    raise Exceptions.any_user_error("Division by 0 not allowed!")
-
-                val = get_val(key, scope) / get_val(var_stack[l()], scope)
-                max_t = max_type(t2)
-                if max_t in "number long long int":
-                    val = int(val)
-
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_t)
-                var_stack.pop()
-            elif token == '%=':
-                if t1 in ['float', 'double', 'long double', 'longdouble'] or t2 in ['float', 'double', 'long double', 'longdouble']:
-                    raise Exceptions.any_user_error("Modulo operation not allowed with floating point numbers.")
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                if get_val(var_stack[l()], scope) is 0:
-                    raise Exceptions.any_user_error("Modulo by 0 not allowed!")
-                val = get_val(key, scope) % get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == '-=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(key, scope) - get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == '+=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(key, scope) + get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t2))
-                var_stack.pop()
-            elif token == ',':
-                var_stack[l() - 1] = (var_stack[l()], max_type(t1, t2))
-                var_stack.pop()
-            elif token == '>':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) > get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '|':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) | get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '^':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) ^ get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '!':
-                var_stack[l()] = ((0, max_type(t1)) if get_val(var_stack[l()], scope) else (1, max_type(t1)))
-            elif token == '%':
-                if get_val(var_stack[l()], scope) == 0:
-                    raise Exceptions.any_user_error("Modulo by 0 not allowed!")
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) % get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '&':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) & get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '+':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) + get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '*':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) * get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '-':
-                var_stack[l() - 1] = (get_val(var_stack[l() - 1], scope) - get_val(var_stack[l()], scope), max_type(t1, t2))
-                var_stack.pop()
-            elif token == '/':
-                if get_val(var_stack[l()], scope) == 0:
-                    raise Exceptions.any_user_error("Division by 0 not allowed!")
-                v1 = get_val(var_stack[l() - 1], scope)
-                v2 = get_val(var_stack[l()], scope)
-                var_stack[l() - 1] = (v1/v2, max_type(t1, t2))
-                if var_stack[l()-1][1] in "number long long int":
-                    var_stack[l()-1] = (int(var_stack[l()-1][0]), var_stack[l()-1][1])
-                var_stack.pop()
-            elif token == '=':
-                key = Runtime.get_key(var_stack[l()-1], scope)
-                val = get_val(var_stack[l()], scope)
-                set_val(key, val, scope)
-                var_stack[l()-1] = (val, max_type(t1))
-                var_stack.pop()
-            elif token == '<':
-                var_stack[l() - 1] = ((1, 'number') if get_val(var_stack[l() - 1], scope) < get_val(var_stack[l()], scope) else (0, 'number'))
-                var_stack.pop()
-            elif token == '~':
-                var_stack[l()] = (~get_val(var_stack[l()], scope), max_type(t1))
-            elif token == ':':
-                assert postfix[i+1][0] == '?'
-            elif token == '?':
-                assert postfix[i-1][0] == ':'
-                if get_val(var_stack[l()-2], scope):
-                    var_stack[l()-2] = (get_val(var_stack[l()-1], scope), max_type(t2))
-                else:
-                    var_stack[l()-2] = (get_val(var_stack[l()], scope), max_type(t1))
+                    var_stack[l()-2] = var_stack[l()]
+                    mem_stack[l()-2] = mem_stack[l()]
                 var_stack.pop() # pop twice
                 var_stack.pop()
+                mem_stack.pop()
+                mem_stack.pop()
 
-            elif token == "#type#":
-                new_type = tk[1]
+            elif token.val == "#type#":
+                new_type = token.cast
                 if new_type == 'longlong':
                     new_type = 'long long'
                 elif new_type == 'longint':
@@ -496,28 +532,19 @@ def calculate(expr, scope, vartable=Globals.var_table):
                     new_type = 'long long int'
                 elif new_type == 'longdouble':
                     new_type = 'long double'
-                if new_type in ['float', 'double', 'long double']:
-                    if type(var_stack[l()]) is 'str':
-                        raise Exceptions.any_user_error("User trying to convert", get_val(var_stack[l()], scope),"to float.")
-                    else:
-                        var_stack[l()] =  (float(get_val(var_stack[l()], scope)), new_type)
-                elif new_type in ['int', 'long', 'long int', 'long long int', 'long long']:
-                    if type(var_stack[l()]) is 'char':
-                        var_stack[l()] =  (ord(get_val(var_stack[l()], scope)), new_type)
-                    else:
-                        var_stack[l()] = (int(get_val(var_stack[l()], scope)), new_type)
-                elif new_type is 'char':
-                    if type(var_stack[l()]) in ['float', 'double', 'long double']:
-                        raise Exceptions.any_user_error("User trying to convert", get_val(var_stack[l()], scope) ,"to string.")
-                    else:
-                        var_stack[l()] = (chr(get_val(var_stack[l()], scope)), new_type)
+                var_stack[l()] = Types.construct(val = var_stack[l()].val, cast = new_type)
+                mem_stack[l()] = None
         temp = var_stack[l()]
-        if temp[1] not in ['number', 'void']:
-            type_check = temp[1]
-            m1 = Globals.type_range[temp[1]][0]
-            m2 = Globals.type_range[temp[1]][1]
-            if type(temp[0]) is int:
-                temp = temp[0]
+        type_check = None
+        try:
+            type_check = temp.STR
+        except:
+            pass
+        if type_check!=None:
+            m1 = Globals.type_range[type_check][0]
+            m2 = Globals.type_range[type_check][1]
+            if type(temp.val) is int:
+                temp = temp.val
             else:
                 temp = 0
             if not (temp == '' or temp is None or (m1 <= temp and temp <= m2)):
@@ -525,8 +552,9 @@ def calculate(expr, scope, vartable=Globals.var_table):
     ret = var_stack.pop()
     if var_stack:
         raise Exceptions.any_user_error("I don't think the expression in current line makes any sense.")
-    r = get_val(ret[0], scope)
-    Globals.calc_type = ret[1]
-    return r
+    if isinstance(ret, Types.String):
+        return get_val(ret.val, scope)
+    else:
+        return ret.val
 
 calculate = Globals.analyze(calculate)

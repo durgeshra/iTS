@@ -60,8 +60,7 @@ def eval_user_function(name, params, scope):
             Runtime.decl(d[1], params[i], d[0], "global " + name + " " + hash, None)
 
     return Types.construct(val=Runtime.execute(Globals.functions[name][2], \
-            "global "+name+" "+hash, cast=target[0])
-
+            "global "+name+" "+hash), cast=target[0])
 
 def pass_to_func(detail, scope):
     from . import Calc

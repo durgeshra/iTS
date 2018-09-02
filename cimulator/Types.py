@@ -70,38 +70,38 @@ class Numeric:
     def __or__(self, other):
         pass
 
-    # Implementation of the following functions is common for all types.
+    # Implementation of the following functions is common for all
     @coerce
     def __add__(self, other):
         val = self.val + other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __sub__(self, other):
         val = self.val - other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __mul__(self, other):
         val = self.val * other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __pow__(self, other, modulo=float('Inf')):
         val = self.val ** other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     def __neg__(self):
-        return type(self)(-self.val)
+        return self.__class__(val=-self.val)
 
     def __pos__(self):
-        return type(self)(self.val)
+        return self.__class__(val=self.val)
 
     def __abs__(self):
-        return type(self)(abs(self.val))
+        return self.__class__(val=abs(self.val))
 
     def __invert__(self):
-        return type(self)(~self.val)
+        return self.__class__(val=~self.val)
 
     def __int__(self):
         return int(self.val)
@@ -128,10 +128,14 @@ class Point_T(Numeric):
     typeclass = "point"
     val = 0.0
 
-    def __init__(self, val=None, cast=None, level=None, tags=None):
+    def __init__(self, val=None, var=None, cast=None, level=None, tags=None):
         if val!=None:
-            val = float(val)
+            try:
+                val = float(val)
+            except:
+                ValueError(val+" cannot be instantiated to float type.")
         self.val = val
+        self.var = var
         self.cast = cast
         self.level = level
         self.tags = tags
@@ -141,7 +145,7 @@ class Point_T(Numeric):
         if other.val == 0:
             raise any_user_error("Division by 0 not allowed!")
         val = self.val / other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __divmod__(self, other):
@@ -187,6 +191,9 @@ class Point_T(Numeric):
                 "and", other.STR, "which is not allowed. Use it on ",
                 "integer (and related) types only.")
 
+    def setval(self, val):
+        self.val = float(val)
+
 class Float_T(Point_T):
     STR = 'float'
 
@@ -204,7 +211,7 @@ class Num_T(Numeric):
 
     val = 0
 
-    def __init__(self, val=None, cast=None, level=None, tags=None):
+    def __init__(self, val=None, var=None, cast=None, level=None, tags=None):
         if val!=None:
             try:
                 val = ord(val)
@@ -216,6 +223,7 @@ class Num_T(Numeric):
                     self.STR, "which can store values from",
                     self.MIN, "to", self.MAX,".")
         self.val = val
+        self.var = var
         self.cast = cast
         self.level = level
         self.tags = tags
@@ -223,49 +231,67 @@ class Num_T(Numeric):
     @coerce
     def __div__(self, other):
         if other.val == 0:
-            raise any_user_error("Division by 0 not allowed!")
-        val = self.val // other.val
-        return type(self)(val)
+            raise ValueError("Division by 0 not allowed!")
+        val = self.val / other.val
+        return self.__class__(val=val)
 
     @coerce
     def __divmod__(self, other):
         if other.val == 0:
-            raise any_user_error("Division by 0 not allowed!")
-        val = self.val // other.val
-        mod = self.val % other.val
-        return (type(self)(val), type(self)(mod))
+            raise ValueError("Division by 0 not allowed!")
+        if isinstance(self, Num_T) and isinstance(other, Num_T):
+            val = self.val // other.val
+            mod = self.val % other.val
+            return (self.__class__(val=val), self.__class__(val=mod))
+        else:
+            raise TypeError("Cannot apply modulus operation on " + self.STR + " and " + other.STR + " types.")
 
     @coerce
     def __mod__(self, other):
         if other.val == 0:
-            raise any_user_error("Modulo by 0 not allowed!")
-        val = self.val % other.val
-        return type(self)(val)
+            raise ValueError("Modulo by 0 not allowed!")
+        if isinstance(self, Num_T) and isinstance(other, Num_T):
+            val = self.val % other.val
+            return self.__class__(val=val)
+        else:
+            raise TypeError("Cannot apply modulus operation on " + self.STR + " and " + other.STR + " types.")
 
     @coerce
     def __lshift__(self, other):
         val = self.val << other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __rshift__(self, other):
         val = self.val >> other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __and__(self, other):
         val = self.val & other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __xor__(self, other):
         val = self.val ^ other.val
-        return type(self)(val)
+        return self.__class__(val=val)
 
     @coerce
     def __or__(self, other):
         val = self.val | other.val
-        return type(self)(val)
+        return self.__class__(val=val)
+
+    def setval(self, val):
+        try:
+            val = ord(val)
+        except:
+            val = int(val)
+        if (val > self.MAX or val < self.MIN):
+            raise any_user_error(
+                    "Value", val, "out of bounds of the type",
+                    self.STR, "which can store values from",
+                    self.MIN, "to", self.MAX,".")
+        self.val = val
 
 
 class Char_T(Num_T):
@@ -288,29 +314,50 @@ class LongLong_T(Num_T):
     MAX =  2**63 - 1
     MIN = -2**63
 
-class Operator():
+class Pointer_T(Num_T):
+    STR = "pointer"
 
-    def __init__(self, op, ctr=0, cast=None):
-        self.op = op
+    def __init__(self, parent_type, val=None, var=None, cast=None, level=None, tags=None):
+        Num_T.__init__(self, val, var, cast, level, tags)
+        self.parent_type = parent_type
+
+class Operator:
+    STR = "operator"
+
+    def __init__(self, val, ctr=0, cast=None):
+        self.val = val
         self.ctr = ctr
         self.cast = cast
-        
-def construct(val, cast, level=None, tags=None):
+
+    def __repr__(self):
+        return str(self.val)
+
+class String:
+
+    def __init__(self, val):
+        self.val = val
+
+    def __repr__(self):
+        return str(self.val)
+
+def construct(val, cast, var=None, level=None, tags=None, parent_type=None):
     if cast=="char":
-        return Types.Char_T(val=val, cast=cast, level=level, tags=tags)
+        return Char_T(val=val, var=var, cast=cast, level=level, tags=tags)
     elif cast=="int":
-        return Types.Int_T(val=val, cast=cast, level=level, tags=tags)
+        return Int_T(val=val, var=var, cast=cast, level=level, tags=tags)
     elif cast == "long" or cast == "long int":
-        return Types.Long_T(val=val, cast=cast, level=level, tags=tags)
+        return Long_T(val=val, var=var, cast=cast, level=level, tags=tags)
     elif cast == "long long" or cast == "long long int":
-        return Types.LongLong_T(val=val, cast=cast, level=level, tags=tags)
+        return LongLong_T(val=val, var=var, cast=cast, level=level, tags=tags)
     elif cast == "float":
-        return Types.Float_T(val=val, cast=cast, level=level, tags=tags)
+        return Float_T(val=val, var=var, cast=cast, level=level, tags=tags)
     elif cast == "double":
-        return Types.Double_T(val=val, cast=cast, level=level, tags=tags)
+        return Double_T(val=val, var=var, cast=cast, level=level, tags=tags)
     elif cast == "long double":
-        return Types.LongDouble_T(val=val, cast=cast, level=level, tags=tags)
-    
+        return LongDouble_T(val=val, var=var, cast=cast, level=level, tags=tags)
+    elif cast == "pointer":
+        return Pointer_T(val=val, var=var, cast=cast, level=level, tags=tags, parent_type=parent_type)
+
 
 
 type_map = {
